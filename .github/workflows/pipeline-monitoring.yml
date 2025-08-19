@@ -1,9 +1,9 @@
 name: Data Pipeline Monitoring
 
 on:
-  # Scheduled runs every 15 minutes
-  schedule:
-    - cron: '*/15 * * * *'
+  # Scheduled runs every 15 minutes (DISABLED)
+  # schedule:
+  #   - cron: '*/15 * * * *'
   
   # Manual trigger
   workflow_dispatch:
