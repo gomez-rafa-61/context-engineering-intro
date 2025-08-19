@@ -12,8 +12,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.live import Live
-from rich.text import Text
 
 from pydantic_ai import Agent
 from agents.research_agent import research_agent

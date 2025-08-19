@@ -1,0 +1,237 @@
+name: Data Pipeline Monitoring
+
+on:
+  # Scheduled runs every 15 minutes
+  schedule:
+    - cron: '*/15 * * * *'
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Monitoring mode'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+        - full
+        - health
+      notification_emails:
+        description: 'Comma-separated email addresses for notifications'
+        required: false
+        default: ''
+      from_email:
+        description: 'From email address'
+        required: false
+        default: 'pipeline-monitor@company.com'
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create environment file
+      run: |
+        cat > .env << EOF
+        # LLM Configuration
+        LLM_PROVIDER=${{ vars.LLM_PROVIDER || 'openai' }}
+        LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+        LLM_MODEL=${{ vars.LLM_MODEL || 'gpt-4' }}
+        LLM_BASE_URL=${{ vars.LLM_BASE_URL || 'https://api.openai.com/v1' }}
+        
+        # Platform API Keys
+        AIRBYTE_API_KEY=${{ secrets.AIRBYTE_API_KEY }}
+        AIRBYTE_BASE_URL=${{ vars.AIRBYTE_BASE_URL || 'https://api.airbyte.com/v1' }}
+        AIRBYTE_WORKSPACE_ID=${{ vars.AIRBYTE_WORKSPACE_ID }}
+        
+        DATABRICKS_API_KEY=${{ secrets.DATABRICKS_API_KEY }}
+        DATABRICKS_BASE_URL=${{ secrets.DATABRICKS_BASE_URL }}
+        DATABRICKS_WORKSPACE_ID=${{ vars.DATABRICKS_WORKSPACE_ID }}
+        
+        POWER_AUTOMATE_CLIENT_ID=${{ secrets.POWER_AUTOMATE_CLIENT_ID }}
+        POWER_AUTOMATE_CLIENT_SECRET=${{ secrets.POWER_AUTOMATE_CLIENT_SECRET }}
+        POWER_AUTOMATE_TENANT_ID=${{ secrets.POWER_AUTOMATE_TENANT_ID }}
+        
+        # Snowflake Configuration
+        SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}
+        SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}
+        SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}
+        SNOWFLAKE_DATABASE=${{ vars.SNOWFLAKE_DATABASE || 'DEV_POWERAPPS' }}
+        SNOWFLAKE_SCHEMA=${{ vars.SNOWFLAKE_SCHEMA || 'AUDIT_JOB_HUB' }}
+        SNOWFLAKE_WAREHOUSE=${{ vars.SNOWFLAKE_WAREHOUSE || 'COMPUTE_WH' }}
+        SNOWFLAKE_ROLE=${{ vars.SNOWFLAKE_ROLE }}
+        
+        # Email Configuration
+        OUTLOOK_CLIENT_ID=${{ secrets.OUTLOOK_CLIENT_ID }}
+        OUTLOOK_CLIENT_SECRET=${{ secrets.OUTLOOK_CLIENT_SECRET }}
+        OUTLOOK_TENANT_ID=${{ secrets.OUTLOOK_TENANT_ID }}
+        
+        # Application Configuration
+        APP_ENV=production
+        LOG_LEVEL=${{ vars.LOG_LEVEL || 'INFO' }}
+        DEBUG=false
+        
+        # Monitoring Configuration
+        MONITORING_INTERVAL_MINUTES=15
+        HEALTH_CHECK_TIMEOUT_SECONDS=30
+        MAX_RETRIES=3
+        RETRY_DELAY_SECONDS=5
+        EOF
+        
+    - name: Run monitoring
+      id: monitor
+      run: |
+        # Determine mode
+        MODE="${{ github.event.inputs.mode || 'full' }}"
+        
+        # Prepare email arguments
+        EMAILS="${{ github.event.inputs.notification_emails }}"
+        FROM_EMAIL="${{ github.event.inputs.from_email || 'pipeline-monitor@company.com' }}"
+        
+        # Generate monitoring ID with GitHub context
+        MONITORING_ID="gh_${GITHUB_RUN_ID}_$(date +%Y%m%d_%H%M%S)"
+        
+        # Build command
+        CMD="python main.py --mode $MODE --monitoring-id $MONITORING_ID --from-email $FROM_EMAIL --output-file monitoring_results.json"
+        
+        # Add emails if provided
+        if [ ! -z "$EMAILS" ]; then
+          IFS=',' read -ra EMAIL_ARRAY <<< "$EMAILS"
+          for email in "${EMAIL_ARRAY[@]}"; do
+            CMD="$CMD --emails $(echo $email | xargs)"
+          done
+        fi
+        
+        echo "Executing: $CMD"
+        eval $CMD
+        
+        # Set outputs
+        echo "monitoring_id=$MONITORING_ID" >> $GITHUB_OUTPUT
+        
+    - name: Upload monitoring results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: monitoring-results-${{ steps.monitor.outputs.monitoring_id }}
+        path: |
+          monitoring_results.json
+          monitoring.log
+        retention-days: 30
+        
+    - name: Upload logs on failure
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: monitoring-logs-failed-${{ github.run_id }}
+        path: |
+          monitoring.log
+          *.log
+        retention-days: 7
+        
+    - name: Comment on PR (if applicable)
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request' && always()
+      with:
+        script: |
+          const fs = require('fs');
+          let summary = '## 🔍 Pipeline Monitoring Results\n\n';
+          
+          try {
+            const results = JSON.parse(fs.readFileSync('monitoring_results.json', 'utf8'));
+            summary += `**Monitoring ID:** ${results.monitoring_id}\n`;
+            summary += `**Status:** ${results.success ? '✅ Success' : '❌ Failed'}\n`;
+            summary += `**Timestamp:** ${results.timestamp}\n\n`;
+            
+            if (results.success) {
+              summary += `**Recipients:** ${results.notification_recipients?.length || 0} email(s)\n`;
+              summary += `**From:** ${results.from_email}\n\n`;
+              summary += '**Summary:** Monitoring completed successfully. Check artifacts for detailed results.\n';
+            } else {
+              summary += `**Error:** ${results.error}\n\n`;
+              summary += '❗ Monitoring failed. Check logs for details.\n';
+            }
+          } catch (error) {
+            summary += '⚠️ Could not parse monitoring results.\n';
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create environment file
+      run: |
+        cat > .env << EOF
+        LLM_PROVIDER=${{ vars.LLM_PROVIDER || 'openai' }}
+        LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+        LLM_MODEL=${{ vars.LLM_MODEL || 'gpt-4' }}
+        AIRBYTE_API_KEY=${{ secrets.AIRBYTE_API_KEY }}
+        DATABRICKS_API_KEY=${{ secrets.DATABRICKS_API_KEY }}
+        DATABRICKS_BASE_URL=${{ secrets.DATABRICKS_BASE_URL }}
+        POWER_AUTOMATE_CLIENT_ID=${{ secrets.POWER_AUTOMATE_CLIENT_ID }}
+        POWER_AUTOMATE_CLIENT_SECRET=${{ secrets.POWER_AUTOMATE_CLIENT_SECRET }}
+        POWER_AUTOMATE_TENANT_ID=${{ secrets.POWER_AUTOMATE_TENANT_ID }}
+        SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}
+        SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}
+        SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}
+        OUTLOOK_CLIENT_ID=${{ secrets.OUTLOOK_CLIENT_ID }}
+        OUTLOOK_CLIENT_SECRET=${{ secrets.OUTLOOK_CLIENT_SECRET }}
+        OUTLOOK_TENANT_ID=${{ secrets.OUTLOOK_TENANT_ID }}
+        APP_ENV=production
+        LOG_LEVEL=INFO
+        EOF
+        
+    - name: Run health check
+      run: |
+        python main.py --mode health --output-file health_check.json
+        
+    - name: Upload health check results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: health-check-${{ github.run_id }}
+        path: health_check.json
+        retention-days: 7

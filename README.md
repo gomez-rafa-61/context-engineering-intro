@@ -1,296 +1,374 @@
-# Context Engineering Template
+# Data Pipeline Monitoring Automation Framework
 
-A comprehensive template for getting started with Context Engineering - the discipline of engineering context for AI coding assistants so they have the information necessary to get the job done end to end.
+A comprehensive AI-powered monitoring system for data pipelines across multiple platforms using Pydantic AI multi-agent architecture.
 
-> **Context Engineering is 10x better than prompt engineering and 100x better than vibe coding.**
+## 🏗️ Architecture
+
+This framework uses a multi-agent system to monitor data pipeline health across:
+- **Airbyte** - Data connector sync jobs and streams
+- **Databricks** - Job runs and cluster health
+- **Power Automate** - Flow execution status  
+- **Snowflake Tasks** - Task execution history
+
+### Agent Architecture
+
+```
+🎯 Orchestrator Agent
+├── 📊 Airbyte Agent → Airbyte API Tool
+├── ⚙️ Databricks Agent → Databricks API Tool
+├── 🔄 Power Automate Agent → Microsoft Graph Tool
+├── ❄️ Snowflake Task Agent → Snowflake Task API Tool
+├── 💾 Snowflake DB Agent → Database Operations Tool
+└── 📧 Email Agent → Outlook API Tool
+```
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- Python 3.11+
+- Virtual environment (recommended)
+- API access to monitored platforms
+- Snowflake database for audit storage
+
+### Installation
+
+1. **Clone the repository**
 ```bash
-# 1. Clone this template
-git clone https://github.com/coleam00/Context-Engineering-Intro.git
-cd Context-Engineering-Intro
-
-# 2. Set up your project rules (optional - template provided)
-# Edit CLAUDE.md to add your project-specific guidelines
-
-# 3. Add examples (highly recommended)
-# Place relevant code examples in the examples/ folder
-
-# 4. Create your initial feature request
-# Edit INITIAL.md with your feature requirements
-
-# 5. Generate a comprehensive PRP (Product Requirements Prompt)
-# In Claude Code, run:
-/generate-prp INITIAL.md
-
-# 6. Execute the PRP to implement your feature
-# In Claude Code, run:
-/execute-prp PRPs/your-feature-name.md
+git clone <repository-url>
+cd audit-automation-framework
 ```
 
-## 📚 Table of Contents
-
-- [What is Context Engineering?](#what-is-context-engineering)
-- [Template Structure](#template-structure)
-- [Step-by-Step Guide](#step-by-step-guide)
-- [Writing Effective INITIAL.md Files](#writing-effective-initialmd-files)
-- [The PRP Workflow](#the-prp-workflow)
-- [Using Examples Effectively](#using-examples-effectively)
-- [Best Practices](#best-practices)
-
-## What is Context Engineering?
-
-Context Engineering represents a paradigm shift from traditional prompt engineering:
-
-### Prompt Engineering vs Context Engineering
-
-**Prompt Engineering:**
-- Focuses on clever wording and specific phrasing
-- Limited to how you phrase a task
-- Like giving someone a sticky note
-
-**Context Engineering:**
-- A complete system for providing comprehensive context
-- Includes documentation, examples, rules, patterns, and validation
-- Like writing a full screenplay with all the details
-
-### Why Context Engineering Matters
-
-1. **Reduces AI Failures**: Most agent failures aren't model failures - they're context failures
-2. **Ensures Consistency**: AI follows your project patterns and conventions
-3. **Enables Complex Features**: AI can handle multi-step implementations with proper context
-4. **Self-Correcting**: Validation loops allow AI to fix its own mistakes
-
-## Template Structure
-
-```
-context-engineering-intro/
-├── .claude/
-│   ├── commands/
-│   │   ├── generate-prp.md    # Generates comprehensive PRPs
-│   │   └── execute-prp.md     # Executes PRPs to implement features
-│   └── settings.local.json    # Claude Code permissions
-├── PRPs/
-│   ├── templates/
-│   │   └── prp_base.md       # Base template for PRPs
-│   └── EXAMPLE_multi_agent_prp.md  # Example of a complete PRP
-├── examples/                  # Your code examples (critical!)
-├── CLAUDE.md                 # Global rules for AI assistant
-├── INITIAL.md               # Template for feature requests
-├── INITIAL_EXAMPLE.md       # Example feature request
-└── README.md                # This file
-```
-
-This template doesn't focus on RAG and tools with context engineering because I have a LOT more in store for that soon. ;)
-
-## Step-by-Step Guide
-
-### 1. Set Up Global Rules (CLAUDE.md)
-
-The `CLAUDE.md` file contains project-wide rules that the AI assistant will follow in every conversation. The template includes:
-
-- **Project awareness**: Reading planning docs, checking tasks
-- **Code structure**: File size limits, module organization
-- **Testing requirements**: Unit test patterns, coverage expectations
-- **Style conventions**: Language preferences, formatting rules
-- **Documentation standards**: Docstring formats, commenting practices
-
-**You can use the provided template as-is or customize it for your project.**
-
-### 2. Create Your Initial Feature Request
-
-Edit `INITIAL.md` to describe what you want to build:
-
-```markdown
-## FEATURE:
-[Describe what you want to build - be specific about functionality and requirements]
-
-## EXAMPLES:
-[List any example files in the examples/ folder and explain how they should be used]
-
-## DOCUMENTATION:
-[Include links to relevant documentation, APIs, or MCP server resources]
-
-## OTHER CONSIDERATIONS:
-[Mention any gotchas, specific requirements, or things AI assistants commonly miss]
-```
-
-**See `INITIAL_EXAMPLE.md` for a complete example.**
-
-### 3. Generate the PRP
-
-PRPs (Product Requirements Prompts) are comprehensive implementation blueprints that include:
-
-- Complete context and documentation
-- Implementation steps with validation
-- Error handling patterns
-- Test requirements
-
-They are similar to PRDs (Product Requirements Documents) but are crafted more specifically to instruct an AI coding assistant.
-
-Run in Claude Code:
+2. **Set up virtual environment**
 ```bash
-/generate-prp INITIAL.md
+python -m venv venv_linux
+source venv_linux/bin/activate  # Linux/Mac
+# or
+venv_linux\Scripts\activate     # Windows
 ```
 
-**Note:** The slash commands are custom commands defined in `.claude/commands/`. You can view their implementation:
-- `.claude/commands/generate-prp.md` - See how it researches and creates PRPs
-- `.claude/commands/execute-prp.md` - See how it implements features from PRPs
+3. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-The `$ARGUMENTS` variable in these commands receives whatever you pass after the command name (e.g., `INITIAL.md` or `PRPs/your-feature.md`).
+4. **Configure environment**
+```bash
+cp .env.example .env
+# Edit .env with your API keys and configuration
+```
 
-This command will:
-1. Read your feature request
-2. Research the codebase for patterns
-3. Search for relevant documentation
-4. Create a comprehensive PRP in `PRPs/your-feature-name.md`
+### Configuration
 
-### 4. Execute the PRP
+#### Required Environment Variables
 
-Once generated, execute the PRP to implement your feature:
+**LLM Configuration:**
+```env
+LLM_PROVIDER=openai
+LLM_API_KEY=sk-your_openai_api_key_here
+LLM_MODEL=gpt-4
+```
+
+**Platform API Keys:**
+```env
+# Airbyte
+AIRBYTE_API_KEY=your_airbyte_access_token
+AIRBYTE_WORKSPACE_ID=your_workspace_id
+
+# Databricks  
+DATABRICKS_API_KEY=your_databricks_token
+DATABRICKS_BASE_URL=https://your-workspace.cloud.databricks.com
+
+# Power Automate (Azure AD App)
+POWER_AUTOMATE_CLIENT_ID=your_azure_app_client_id
+POWER_AUTOMATE_CLIENT_SECRET=your_azure_app_secret
+POWER_AUTOMATE_TENANT_ID=your_azure_tenant_id
+
+# Snowflake
+SNOWFLAKE_ACCOUNT=CURALEAF-CURAPROD.snowflakecomputing.com
+SNOWFLAKE_USER=your_user
+SNOWFLAKE_PASSWORD=your_password
+SNOWFLAKE_DATABASE=DEV_POWERAPPS
+SNOWFLAKE_SCHEMA=AUDIT_JOB_HUB
+
+# Email Notifications (Azure AD App)
+OUTLOOK_CLIENT_ID=your_outlook_client_id
+OUTLOOK_CLIENT_SECRET=your_outlook_secret
+OUTLOOK_TENANT_ID=your_tenant_id
+```
+
+## 🖥️ Usage
+
+### Interactive CLI
+
+Launch the interactive monitoring interface:
 
 ```bash
-/execute-prp PRPs/your-feature-name.md
+python cli.py
 ```
 
-The AI coding assistant will:
-1. Read all context from the PRP
-2. Create a detailed implementation plan
-3. Execute each step with validation
-4. Run tests and fix any issues
-5. Ensure all success criteria are met
+**Available Commands:**
+- `monitor all` - Comprehensive monitoring across all platforms
+- `monitor airbyte` - Airbyte-specific monitoring
+- `health check` - Quick system health assessment
+- `help` - Show command help
+- `config` - Display current configuration
 
-## Writing Effective INITIAL.md Files
+### Automated Monitoring
 
-### Key Sections Explained
+Run automated monitoring cycles:
 
-**FEATURE**: Be specific and comprehensive
-- ❌ "Build a web scraper"
-- ✅ "Build an async web scraper using BeautifulSoup that extracts product data from e-commerce sites, handles rate limiting, and stores results in PostgreSQL"
+```bash
+# Full monitoring cycle
+python main.py --mode full
 
-**EXAMPLES**: Leverage the examples/ folder
-- Place relevant code patterns in `examples/`
-- Reference specific files and patterns to follow
-- Explain what aspects should be mimicked
+# Health check only
+python main.py --mode health
 
-**DOCUMENTATION**: Include all relevant resources
-- API documentation URLs
-- Library guides
-- MCP server documentation
-- Database schemas
+# Custom notifications
+python main.py --emails admin@company.com ops@company.com --from-email monitor@company.com
 
-**OTHER CONSIDERATIONS**: Capture important details
-- Authentication requirements
-- Rate limits or quotas
-- Common pitfalls
-- Performance requirements
-
-## The PRP Workflow
-
-### How /generate-prp Works
-
-The command follows this process:
-
-1. **Research Phase**
-   - Analyzes your codebase for patterns
-   - Searches for similar implementations
-   - Identifies conventions to follow
-
-2. **Documentation Gathering**
-   - Fetches relevant API docs
-   - Includes library documentation
-   - Adds gotchas and quirks
-
-3. **Blueprint Creation**
-   - Creates step-by-step implementation plan
-   - Includes validation gates
-   - Adds test requirements
-
-4. **Quality Check**
-   - Scores confidence level (1-10)
-   - Ensures all context is included
-
-### How /execute-prp Works
-
-1. **Load Context**: Reads the entire PRP
-2. **Plan**: Creates detailed task list using TodoWrite
-3. **Execute**: Implements each component
-4. **Validate**: Runs tests and linting
-5. **Iterate**: Fixes any issues found
-6. **Complete**: Ensures all requirements met
-
-See `PRPs/EXAMPLE_multi_agent_prp.md` for a complete example of what gets generated.
-
-## Using Examples Effectively
-
-The `examples/` folder is **critical** for success. AI coding assistants perform much better when they can see patterns to follow.
-
-### What to Include in Examples
-
-1. **Code Structure Patterns**
-   - How you organize modules
-   - Import conventions
-   - Class/function patterns
-
-2. **Testing Patterns**
-   - Test file structure
-   - Mocking approaches
-   - Assertion styles
-
-3. **Integration Patterns**
-   - API client implementations
-   - Database connections
-   - Authentication flows
-
-4. **CLI Patterns**
-   - Argument parsing
-   - Output formatting
-   - Error handling
-
-### Example Structure
-
-```
-examples/
-├── README.md           # Explains what each example demonstrates
-├── cli.py             # CLI implementation pattern
-├── agent/             # Agent architecture patterns
-│   ├── agent.py      # Agent creation pattern
-│   ├── tools.py      # Tool implementation pattern
-│   └── providers.py  # Multi-provider pattern
-└── tests/            # Testing patterns
-    ├── test_agent.py # Unit test patterns
-    └── conftest.py   # Pytest configuration
+# Save results to file
+python main.py --output-file results.json
 ```
 
-## Best Practices
+### GitHub Actions Integration
 
-### 1. Be Explicit in INITIAL.md
-- Don't assume the AI knows your preferences
-- Include specific requirements and constraints
-- Reference examples liberally
+The framework includes automated GitHub Actions workflows:
 
-### 2. Provide Comprehensive Examples
-- More examples = better implementations
-- Show both what to do AND what not to do
-- Include error handling patterns
+**Scheduled Monitoring:**
+- Runs every 15 minutes
+- Full platform monitoring
+- Automatic notifications on issues
+- Results stored as artifacts
 
-### 3. Use Validation Gates
-- PRPs include test commands that must pass
-- AI will iterate until all validations succeed
-- This ensures working code on first try
+**Manual Execution:**
+- Trigger via GitHub Actions UI
+- Customizable email recipients
+- Configurable monitoring mode
 
-### 4. Leverage Documentation
-- Include official API docs
-- Add MCP server resources
-- Reference specific documentation sections
+## 🔧 API Setup Instructions
 
-### 5. Customize CLAUDE.md
-- Add your conventions
-- Include project-specific rules
-- Define coding standards
+### Airbyte Setup
+1. Log into your Airbyte instance
+2. Go to Settings → Account → Applications  
+3. Click "Create Access Token"
+4. Copy token and set as `AIRBYTE_API_KEY`
 
-## Resources
+### Databricks Setup
+1. Log into your Databricks workspace
+2. User Settings → Access Tokens
+3. Generate New Token
+4. Copy token and set as `DATABRICKS_API_KEY`
 
-- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
-- [Context Engineering Best Practices](https://www.philschmid.de/context-engineering)
+### Power Automate Setup
+1. Azure Portal → App registrations
+2. New registration
+3. API permissions: Microsoft Graph
+   - `Flow.Read.All`
+   - `Directory.Read.All`
+4. Generate client secret
+
+### Snowflake Setup
+1. Create database: `DEV_POWERAPPS`
+2. Create schema: `AUDIT_JOB_HUB`
+3. Grant permissions for INSERT/UPDATE operations
+4. Tables are auto-created on first run
+
+### Outlook Setup
+1. Azure Portal → App registrations
+2. API permissions: Microsoft Graph
+   - `Mail.Send`
+   - `User.Read.All`
+3. Generate client secret
+
+## 📊 Data Storage
+
+### Snowflake Schema
+
+The framework automatically creates these tables in `DEV_POWERAPPS.AUDIT_JOB_HUB`:
+
+**JOB_STATUS_RECORDS**
+- Individual job execution records
+- Platform-specific metadata
+- Error messages and durations
+
+**MONITORING_SESSIONS**
+- Complete monitoring cycle results
+- Overall health assessments
+- Platform summaries
+
+**PLATFORM_HEALTH_SUMMARIES**
+- Per-platform health aggregations
+- Success/failure rates
+- Issue tracking
+
+## 🔔 Notifications
+
+### Email Templates
+
+The system includes three notification templates:
+
+1. **Critical Alert** - Multiple failures, system-wide issues
+2. **Warning Alert** - Platform-specific failures
+3. **Info Summary** - Regular status reports
+
+### Notification Logic
+
+- **CRITICAL**: >10 failed jobs or multiple platform failures
+- **HIGH**: >5 failed jobs or single platform major issues  
+- **NORMAL**: Minor issues, regular reports
+- **LOW**: Informational updates only
+
+## 🧪 Testing
+
+### Unit Tests
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Coverage report
+pytest tests/ --cov=agents --cov=tools --cov-report=html
+```
+
+### Integration Tests
+```bash
+# Test with actual APIs (requires valid .env)
+python main.py --mode health
+
+# Test CLI interface
+python cli.py
+```
+
+### Agent Testing with TestModel
+```python
+from pydantic_ai.models.test import TestModel
+from agents.airbyte_agent import airbyte_agent
+
+# Fast agent validation without API calls
+test_model = TestModel()
+with airbyte_agent.override(model=test_model):
+    result = await airbyte_agent.run("Test monitoring")
+```
+
+## 🔍 Validation Commands
+
+Before deployment, run these validation checks:
+
+```bash
+# Code quality
+ruff check . --fix
+mypy .
+
+# Unit tests
+pytest tests/ -v
+
+# Manual system test
+python main.py --mode health --output-file health.json
+```
+
+## 🏢 Project Structure
+
+```
+audit-automation-framework/
+├── agents/                    # Pydantic AI agents
+│   ├── orchestrator_agent.py # Main coordinator
+│   ├── airbyte_agent.py      # Airbyte monitoring
+│   ├── email_agent.py        # Notifications
+│   └── dependencies.py       # Shared dependencies
+├── tools/                     # Platform API integrations
+│   ├── airbyte_api.py        # Airbyte client
+│   ├── databricks_api.py     # Databricks client
+│   ├── snowflake_db_api.py   # Database operations
+│   └── outlook_api.py        # Email client
+├── models/                    # Data models
+│   ├── job_status.py         # Core job models
+│   ├── platform_models.py    # Platform-specific models
+│   └── notification_models.py # Email models
+├── config/
+│   └── settings.py           # Configuration management
+├── .github/workflows/        # GitHub Actions
+├── cli.py                    # Interactive interface
+├── main.py                   # Automated execution
+└── requirements.txt          # Dependencies
+```
+
+## 🔒 Security Best Practices
+
+- Store all API keys in environment variables
+- Use Azure AD app registrations with least-privilege permissions
+- Enable MFA on all service accounts
+- Rotate API keys regularly
+- Monitor access logs for unusual activity
+- Use Snowflake key-pair authentication in production
+
+## 📈 Monitoring & Observability
+
+### Logs
+- Application logs: `monitoring.log`
+- Structured logging with timestamps
+- Error tracking and debugging information
+
+### Metrics
+- Job success/failure rates
+- Platform availability percentages
+- Response times and performance metrics
+- Historical trend analysis
+
+### Alerts
+- Real-time failure notifications
+- Escalation based on severity
+- Integration with existing alerting systems
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Authentication Errors:**
+- Verify API keys in .env file
+- Check Azure AD app permissions
+- Confirm service account access
+
+**Connection Timeouts:**
+- Increase timeout settings
+- Check network connectivity
+- Verify API endpoint URLs
+
+**Missing Dependencies:**
+- Run `pip install -r requirements.txt`
+- Check Python version compatibility
+- Verify virtual environment activation
+
+### Debug Mode
+```bash
+# Enable debug logging
+export DEBUG=true
+export LOG_LEVEL=DEBUG
+python main.py --mode health
+```
+
+## 📝 Contributing
+
+1. Follow PEP8 coding standards
+2. Add unit tests for new features
+3. Update documentation
+4. Use conventional commit messages
+5. Test with all supported platforms
+
+## 📜 License
+
+This project is licensed under the MIT License. See LICENSE file for details.
+
+---
+
+## 🆘 Support
+
+For support and questions:
+- Review the troubleshooting guide
+- Check application logs
+- Verify API configurations
+- Contact the data engineering team
+
+**Monitoring Dashboard:** Access real-time status via the CLI interface  
+**Documentation:** Complete API setup guides in `.env.example`  
+**Status:** Production-ready multi-agent monitoring system

@@ -211,7 +211,7 @@ def validate_template_integrity(target_dir: Path) -> bool:
             missing_files.append(file_path)
     
     if missing_files:
-        print(f"\n⚠️  Warning: Some essential files are missing:")
+        print("\n⚠️  Warning: Some essential files are missing:")
         for file in missing_files:
             print(f"   - {file}")
         return False
@@ -345,7 +345,7 @@ Examples:
     create_directory_structure(target_dir, files_to_copy)
     
     # Copy files
-    print(f"\n📋 Copying template files:")
+    print("\n📋 Copying template files:")
     copied_count = copy_template_files(target_dir, files_to_copy)
     
     # Validate template integrity

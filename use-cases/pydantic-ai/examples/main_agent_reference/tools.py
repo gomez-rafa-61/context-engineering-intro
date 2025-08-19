@@ -3,14 +3,10 @@ Pure tool functions for multi-agent system.
 These are standalone functions that can be imported and used by any agent.
 """
 
-import os
-import base64
 import logging
 import httpx
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
-from agents.models import BraveSearchResult
 
 logger = logging.getLogger(__name__)
 

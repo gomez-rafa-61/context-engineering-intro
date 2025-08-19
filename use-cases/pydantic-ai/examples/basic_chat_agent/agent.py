@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.models.openai import OpenAIModel
 from dotenv import load_dotenv
