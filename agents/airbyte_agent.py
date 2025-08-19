@@ -86,6 +86,8 @@ async def get_airbyte_jobs(
         # Get job status records
         job_records = await get_airbyte_job_status(
             api_key=ctx.deps.api_key,
+            client_id=ctx.deps.client_id,
+            client_secret=ctx.deps.client_secret,
             workspace_id=ctx.deps.workspace_id,
             job_type=job_type,
             limit=min(max(limit, 1), 100)
@@ -131,6 +133,8 @@ async def get_connection_health(
         # Get connection health data
         health_data = await get_airbyte_connection_health(
             api_key=ctx.deps.api_key,
+            client_id=ctx.deps.client_id,
+            client_secret=ctx.deps.client_secret,
             workspace_id=ctx.deps.workspace_id
         )
         

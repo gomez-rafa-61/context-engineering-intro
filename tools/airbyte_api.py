@@ -5,7 +5,7 @@ Airbyte API integration tools for job status monitoring.
 import asyncio
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import httpx
 
 from models.job_status import JobStatusRecord, PlatformType
@@ -25,11 +25,13 @@ class AirbyteAPIError(Exception):
 
 
 class AirbyteAPIClient:
-    """Airbyte API client with retry logic and error handling."""
+    """Airbyte API client with retry logic, error handling, and token refresh capability."""
     
     def __init__(
         self,
-        api_key: str,
+        api_key: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
         base_url: str = "https://api.airbyte.com/v1",
         timeout: float = 30.0,
         max_retries: int = 3,
@@ -39,23 +41,96 @@ class AirbyteAPIClient:
         Initialize Airbyte API client.
         
         Args:
-            api_key: Airbyte access token
+            api_key: Static Airbyte access token (for backwards compatibility)
+            client_id: OAuth2 client ID for token refresh
+            client_secret: OAuth2 client secret for token refresh
             base_url: Airbyte API base URL
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts
             retry_delay: Base delay between retries in seconds
         """
-        if not api_key or not api_key.strip():
-            raise ValueError("Airbyte API key is required")
+        # Support both static API key and OAuth2 token refresh
+        if api_key and api_key.strip():
+            # Static API key mode (backwards compatibility)
+            self.api_key = api_key.strip()
+            self.client_id = None
+            self.client_secret = None
+            self.token_expiry = None
+            self.use_oauth = False
+        elif client_id and client_secret:
+            # OAuth2 mode with token refresh
+            self.api_key = None
+            self.client_id = client_id.strip()
+            self.client_secret = client_secret.strip()
+            self.token_expiry = None
+            self.use_oauth = True
+        else:
+            raise ValueError("Either api_key or both client_id and client_secret are required")
             
-        self.api_key = api_key.strip()
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+    
+    async def _refresh_token(self) -> str:
+        """
+        Refresh the OAuth2 authentication token.
         
-        # Default headers for all requests
-        self.headers = {
+        Returns:
+            New access token
+            
+        Raises:
+            AirbyteAPIError: On token refresh failure
+        """
+        if not self.use_oauth:
+            raise AirbyteAPIError("Token refresh not available in static API key mode")
+            
+        auth_url = f"{self.base_url}/applications/token"
+        
+        payload = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    auth_url, 
+                    json=payload,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                
+                token_data = response.json()
+                self.api_key = token_data["access_token"]
+                
+                # Set token expiry (default 1 hour with 5 min buffer)
+                expires_in = token_data.get("expires_in", 3600)
+                self.token_expiry = datetime.now() + timedelta(seconds=expires_in - 300)
+                
+                logger.info("Successfully refreshed Airbyte API token")
+                return self.api_key
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Token refresh failed: {e.response.status_code} - {e.response.text}")
+            raise AirbyteAPIError(f"Token refresh failed: {e.response.status_code}")
+        except Exception as e:
+            logger.error(f"Token refresh error: {str(e)}")
+            raise AirbyteAPIError(f"Token refresh error: {str(e)}")
+    
+    async def _get_headers(self) -> Dict[str, str]:
+        """
+        Get authorization headers with automatic token refresh if needed.
+        
+        Returns:
+            Headers dictionary with current access token
+        """
+        # Check if token refresh is needed (OAuth2 mode only)
+        if self.use_oauth and (not self.api_key or 
+                              (self.token_expiry and datetime.now() >= self.token_expiry)):
+            await self._refresh_token()
+        
+        return {
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -87,11 +162,12 @@ class AirbyteAPIClient:
         
         for attempt in range(self.max_retries + 1):
             try:
+                headers = await self._get_headers()
                 async with httpx.AsyncClient() as client:
                     response = await client.request(
                         method=method,
                         url=url,
-                        headers=self.headers,
+                        headers=headers,
                         params=params,
                         json=json_data,
                         timeout=self.timeout,
@@ -107,8 +183,15 @@ class AirbyteAPIClient:
                         else:
                             raise AirbyteAPIError("Rate limit exceeded. Check your Airbyte API quota.")
                     
-                    # Handle authentication errors
+                    # Handle authentication errors with token refresh retry
                     if response.status_code == 401:
+                        if self.use_oauth and attempt < self.max_retries:
+                            logger.warning("Authentication failed, attempting token refresh")
+                            try:
+                                await self._refresh_token()
+                                continue  # Retry with new token
+                            except Exception as refresh_error:
+                                logger.error(f"Token refresh failed: {refresh_error}")
                         raise AirbyteAPIError("Invalid Airbyte API key or token expired")
                     
                     # Handle forbidden access
@@ -251,7 +334,9 @@ class AirbyteAPIClient:
 
 # Convenience functions for use in agents
 async def get_airbyte_job_status(
-    api_key: str,
+    api_key: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
     workspace_id: Optional[str] = None,
     job_type: str = "sync",
     limit: int = 50,
@@ -260,7 +345,9 @@ async def get_airbyte_job_status(
     Get job status records from Airbyte API.
     
     Args:
-        api_key: Airbyte API access token
+        api_key: Static Airbyte API access token (for backwards compatibility)
+        client_id: OAuth2 client ID for token refresh
+        client_secret: OAuth2 client secret for token refresh
         workspace_id: Optional workspace ID
         job_type: Type of jobs to fetch
         limit: Maximum number of jobs to fetch
@@ -268,7 +355,11 @@ async def get_airbyte_job_status(
     Returns:
         List of JobStatusRecord objects
     """
-    client = AirbyteAPIClient(api_key)
+    client = AirbyteAPIClient(
+        api_key=api_key,
+        client_id=client_id,
+        client_secret=client_secret
+    )
     
     try:
         jobs_response = await client.get_jobs(
@@ -327,20 +418,28 @@ async def get_airbyte_job_status(
 
 
 async def get_airbyte_connection_health(
-    api_key: str,
+    api_key: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
     workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Get connection health information from Airbyte.
     
     Args:
-        api_key: Airbyte API access token
+        api_key: Static Airbyte API access token (for backwards compatibility)
+        client_id: OAuth2 client ID for token refresh
+        client_secret: OAuth2 client secret for token refresh
         workspace_id: Optional workspace ID
         
     Returns:
         List of connection health dictionaries
     """
-    client = AirbyteAPIClient(api_key)
+    client = AirbyteAPIClient(
+        api_key=api_key,
+        client_id=client_id,
+        client_secret=client_secret
+    )
     
     try:
         connections = await client.get_connections(workspace_id=workspace_id)

@@ -71,8 +71,15 @@ LLM_MODEL=gpt-4
 
 **Platform API Keys:**
 ```env
-# Airbyte
+# Airbyte (Choose one authentication method)
+# Option 1: Static API Key (Legacy)
 AIRBYTE_API_KEY=your_airbyte_access_token
+
+# Option 2: OAuth2 Token Refresh (Recommended)
+AIRBYTE_CLIENT_ID=your_airbyte_client_id
+AIRBYTE_CLIENT_SECRET=your_airbyte_client_secret
+
+# Common Airbyte Settings
 AIRBYTE_WORKSPACE_ID=your_workspace_id
 
 # Databricks  
@@ -150,10 +157,21 @@ The framework includes automated GitHub Actions workflows:
 ## 🔧 API Setup Instructions
 
 ### Airbyte Setup
+
+**Option 1: OAuth2 Token Refresh (Recommended)**
+1. Log into your Airbyte Cloud account
+2. Go to Settings → Applications
+3. Click "Create Application"
+4. Note down the Client ID and Client Secret
+5. Set `AIRBYTE_CLIENT_ID` and `AIRBYTE_CLIENT_SECRET`
+
+**Option 2: Static API Key (Legacy)**
 1. Log into your Airbyte instance
 2. Go to Settings → Account → Applications  
 3. Click "Create Access Token"
 4. Copy token and set as `AIRBYTE_API_KEY`
+
+**Note:** OAuth2 is recommended as it provides automatic token refresh and better security.
 
 ### Databricks Setup
 1. Log into your Databricks workspace
@@ -238,6 +256,9 @@ python main.py --mode health
 
 # Test CLI interface
 python cli.py
+
+# Test Airbyte token refresh functionality
+python examples/test_token_refresh.py
 ```
 
 ### Agent Testing with TestModel

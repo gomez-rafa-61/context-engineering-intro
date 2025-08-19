@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     llm_base_url: Optional[str] = Field(default="https://api.openai.com/v1")
     
     # Airbyte Configuration
-    airbyte_api_key: str = Field(...)
+    airbyte_api_key: Optional[str] = Field(None, description="Static API key (legacy)")
+    airbyte_client_id: Optional[str] = Field(None, description="OAuth2 Client ID")
+    airbyte_client_secret: Optional[str] = Field(None, description="OAuth2 Client Secret")
     airbyte_base_url: str = Field(
         default="https://api.airbyte.com/v1"
     )
@@ -72,13 +74,19 @@ class Settings(BaseSettings):
     max_retries: int = Field(default=3)
     retry_delay_seconds: int = Field(default=5)
     
-    @field_validator("llm_api_key", "airbyte_api_key", "databricks_api_key")
+    @field_validator("llm_api_key", "databricks_api_key")
     @classmethod
     def validate_required_api_keys(cls, v):
         """Ensure required API keys are not empty."""
         if not v or v.strip() == "":
             raise ValueError("API key cannot be empty")
         return v
+    
+    def validate_airbyte_config(self) -> None:
+        """Validate that either API key or OAuth2 credentials are provided for Airbyte."""
+        if not self.airbyte_api_key and not (self.airbyte_client_id and self.airbyte_client_secret):
+            raise ValueError("Either airbyte_api_key or both airbyte_client_id and airbyte_client_secret must be provided")
+        return self
     
     @field_validator("power_automate_client_id", "power_automate_client_secret", "power_automate_tenant_id")
     @classmethod
@@ -121,6 +129,8 @@ except Exception:
     import os
     os.environ.setdefault("LLM_API_KEY", "test_key")
     os.environ.setdefault("AIRBYTE_API_KEY", "test_key")
+    os.environ.setdefault("AIRBYTE_CLIENT_ID", "test_client_id")
+    os.environ.setdefault("AIRBYTE_CLIENT_SECRET", "test_client_secret")
     os.environ.setdefault("DATABRICKS_API_KEY", "test_key")
     os.environ.setdefault("DATABRICKS_BASE_URL", "https://test.databricks.com")
     os.environ.setdefault("POWER_AUTOMATE_CLIENT_ID", "test_client_id")

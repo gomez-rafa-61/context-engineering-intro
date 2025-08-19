@@ -12,7 +12,7 @@ Build an automation framework that can monitor and register the status of existi
 - Outlook for the email draft agent, Snowflake API agent for registering status, Airbyte API for job status agent
 
 ## EXAMPLES:
-
+Use the following example for connecting to AirByte
 
 
 ## DOCUMENTATION:

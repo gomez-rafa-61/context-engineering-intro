@@ -29,6 +29,12 @@ A comprehensive automation framework with:
 - **Smart notifications**: Context-aware email alerts to support teams
 - **GitHub Actions integration**: Scheduled execution and CI/CD ready
 
+## Example
+In the `examples/` folder, is information on how to connect to AirByte and refresh API token for each API call 
+
+- `examples/airbyte_status_checker.py` - use this as a to access AirByte API Token
+- `examples/.env` - use to for setting AirByte environment variables
+
 ### Success Criteria
 - [ ] Successfully monitor job status from all 4 data platforms
 - [ ] Register job status data in Snowflake DEV_POWERAPPS.AUDIT_JOB_HUB schema

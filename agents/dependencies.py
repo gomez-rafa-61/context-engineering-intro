@@ -10,7 +10,9 @@ from config.settings import settings
 @dataclass
 class AirbyteDependencies:
     """Dependencies for Airbyte monitoring agent."""
-    api_key: str
+    api_key: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
     base_url: str = "https://api.airbyte.com/v1"
     workspace_id: Optional[str] = None
     session_id: Optional[str] = None
@@ -20,8 +22,29 @@ class AirbyteDependencies:
         """Create dependencies from global settings."""
         return cls(
             api_key=settings.airbyte_api_key,
+            client_id=getattr(settings, 'airbyte_client_id', None),
+            client_secret=getattr(settings, 'airbyte_client_secret', None),
             base_url=settings.airbyte_base_url,
             workspace_id=settings.airbyte_workspace_id,
+            session_id=session_id,
+        )
+    
+    @classmethod
+    def from_oauth(
+        cls, 
+        client_id: str, 
+        client_secret: str, 
+        workspace_id: Optional[str] = None,
+        base_url: str = "https://api.airbyte.com/v1",
+        session_id: Optional[str] = None
+    ) -> "AirbyteDependencies":
+        """Create dependencies for OAuth2 token refresh."""
+        return cls(
+            api_key=None,
+            client_id=client_id,
+            client_secret=client_secret,
+            base_url=base_url,
+            workspace_id=workspace_id,
             session_id=session_id,
         )
 
@@ -144,35 +167,31 @@ class EmailDependencies:
 @dataclass
 class OrchestratorDependencies:
     """Dependencies for the main orchestrator agent."""
-    # Platform API configurations
-    airbyte_api_key: str
-    airbyte_base_url: str
-    airbyte_workspace_id: Optional[str]
-    
+    # Required Platform API configurations
     databricks_api_key: str
     databricks_base_url: str
-    databricks_workspace_id: Optional[str]
-    
     power_automate_client_id: str
     power_automate_client_secret: str
     power_automate_tenant_id: str
-    
-    # Snowflake configurations
     snowflake_account: str
     snowflake_user: str
     snowflake_password: str
     snowflake_database: str
     snowflake_schema: str
     snowflake_warehouse: str
-    snowflake_role: Optional[str]
-    
-    # Email configurations
     outlook_client_id: str
     outlook_client_secret: str
     outlook_tenant_id: str
-    from_email: Optional[str] = None
     
-    # Session management
+    # Optional configurations with defaults
+    airbyte_api_key: Optional[str] = None
+    airbyte_client_id: Optional[str] = None
+    airbyte_client_secret: Optional[str] = None
+    airbyte_base_url: str = "https://api.airbyte.com/v1"
+    airbyte_workspace_id: Optional[str] = None
+    databricks_workspace_id: Optional[str] = None
+    snowflake_role: Optional[str] = None
+    from_email: Optional[str] = None
     session_id: Optional[str] = None
     monitoring_id: Optional[str] = None
     
@@ -187,6 +206,8 @@ class OrchestratorDependencies:
         return cls(
             # Airbyte
             airbyte_api_key=settings.airbyte_api_key,
+            airbyte_client_id=getattr(settings, 'airbyte_client_id', None),
+            airbyte_client_secret=getattr(settings, 'airbyte_client_secret', None),
             airbyte_base_url=settings.airbyte_base_url,
             airbyte_workspace_id=settings.airbyte_workspace_id,
             
@@ -224,6 +245,8 @@ class OrchestratorDependencies:
         """Get Airbyte dependencies."""
         return AirbyteDependencies(
             api_key=self.airbyte_api_key,
+            client_id=self.airbyte_client_id,
+            client_secret=self.airbyte_client_secret,
             base_url=self.airbyte_base_url,
             workspace_id=self.airbyte_workspace_id,
             session_id=self.session_id,
