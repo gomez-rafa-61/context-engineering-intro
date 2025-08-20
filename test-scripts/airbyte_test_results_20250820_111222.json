@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-08-20T11:12:22.923257",
+  "config": {
+    "client_credentials_set": true,
+    "workspace_id": "04977023-75a9-4ed4-ab9b-a804b8796b1e",
+    "base_url": "https://api.airbyte.com/v1"
+  },
+  "connections_count": 0,
+  "jobs_count": 0,
+  "records_count": 0,
+  "sample_connections": [],
+  "sample_jobs": [],
+  "sample_records": []
+}

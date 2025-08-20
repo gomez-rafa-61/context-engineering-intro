@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # LLM Configuration
     llm_provider: str = Field(default="openai")
     llm_api_key: str = Field(...)
-    llm_model: str = Field(default="gpt-4")
+    llm_model: str = Field(default="gpt-4o-mini")
     llm_base_url: Optional[str] = Field(default="https://api.openai.com/v1")
     
     # Airbyte Configuration

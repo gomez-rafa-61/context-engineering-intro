@@ -66,7 +66,7 @@ cp .env.example .env
 ```env
 LLM_PROVIDER=openai
 LLM_API_KEY=sk-your_openai_api_key_here
-LLM_MODEL=gpt-4
+LLM_MODEL=gpt-4o-mini
 ```
 
 **Platform API Keys:**
@@ -393,3 +393,98 @@ For support and questions:
 **Monitoring Dashboard:** Access real-time status via the CLI interface  
 **Documentation:** Complete API setup guides in `.env.example`  
 **Status:** Production-ready multi-agent monitoring system
+
+## 🔑 **No API Key Needed for Ollama + Mistral 7B!**
+
+**Ollama is completely free and runs locally** - you don't need to get an API key from anywhere. Here's why:
+
+### ✅ **Local Deployment = No API Keys Required**
+
+- **Ollama runs on your own computer/server**
+- **Mistral 7B is an open-source model** 
+- **No external service to authenticate with**
+- **No registration or signup required**
+
+### 🚀 **Complete Setup Process**
+
+```bash
+# 1. Install Ollama (completely free)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# 2. Download Mistral 7B model (free, no account needed)
+ollama pull mistral:7b
+
+# 3. Start the local server
+ollama serve
+```
+
+### 📝 **Your .env Configuration**
+
+In your `.env` file, use:
+```bash
+LLM_PROVIDER=openai
+LLM_API_KEY=dummy_key_not_needed    # Any text works - it's ignored
+LLM_MODEL=mistral:7b
+LLM_BASE_URL=http://localhost:11434/v1
+```
+
+The `LLM_API_KEY` can be **any text** because:
+- Ollama runs locally on your machine
+- No authentication is required for local access
+- The framework expects an API key field, so we provide a dummy value
+
+### 🌐 **Official Ollama Resources**
+
+- **Download Ollama**: https://ollama.ai/download
+- **Model Library**: https://ollama.ai/library
+- **Mistral 7B Model**: https://ollama.ai/library/mistral
+- **Documentation**: https://github.com/ollama/ollama
+
+### 🔍 **How It Works**
+
+1. **Ollama** = Local server that runs LLMs on your machine
+2. **Mistral 7B** = Free, open-source language model  
+3. **OpenAI-compatible API** = Your existing code works without changes
+4. **No external dependencies** = Completely offline operation
+
+### ✅ **Verification Steps**
+
+After setup, verify it works:
+
+```bash
+# Test Ollama is running
+curl http://localhost:11434/v1/models
+
+# Test the model responds
+curl http://localhost:11434/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mistral:7b",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Test your framework
+python cli.py
+```
+
+### 💡 **Key Benefits**
+
+- ✅ **$0 cost** - No subscription fees
+- ✅ **No API limits** - Unlimited requests  
+- ✅ **Complete privacy** - Data never leaves your server
+- ✅ **No registration** - No accounts or signups needed
+- ✅ **Works offline** - No internet required after download
+
+### 🆚 **Comparison with OpenAI**
+
+| Aspect | OpenAI API | Ollama + Mistral 7B |
+|--------|------------|---------------------|
+| **API Key** | Required (from OpenAI) | Not needed (dummy text) |
+| **Cost** | $0.50-$10/month | $0 (just electricity) |
+| **Signup** | Required | Not required |
+| **Privacy** | Data sent to OpenAI | Data stays local |
+| **Internet** | Required | Only for initial download |
+
+So to directly answer your question: **There is no URL to get an API key** because Ollama + Mistral 7B doesn't use API keys - it's completely free local software!
+
+Just install Ollama, download the model, and use any dummy text as the API key in your configuration.

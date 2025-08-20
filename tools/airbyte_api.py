@@ -71,6 +71,21 @@ class AirbyteAPIClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        
+        # Initialize HTTP client
+        self.client = httpx.AsyncClient(timeout=timeout)
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.client.aclose()
+    
+    async def close(self):
+        """Close the HTTP client"""
+        await self.client.aclose()
     
     async def _refresh_token(self) -> str:
         """
@@ -93,27 +108,32 @@ class AirbyteAPIClient:
         }
         
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    auth_url, 
-                    json=payload,
-                    timeout=self.timeout
-                )
-                response.raise_for_status()
-                
-                token_data = response.json()
-                self.api_key = token_data["access_token"]
-                
-                # Set token expiry (default 1 hour with 5 min buffer)
-                expires_in = token_data.get("expires_in", 3600)
-                self.token_expiry = datetime.now() + timedelta(seconds=expires_in - 300)
-                
-                logger.info("Successfully refreshed Airbyte API token")
-                return self.api_key
-                
+            # Use the existing client instead of creating new one each time
+            response = await self.client.post(
+                auth_url, 
+                json=payload,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            
+            token_data = response.json()
+            self.api_key = token_data["access_token"]
+            
+            # Set token expiry (default 1 hour with 5 min buffer)
+            expires_in = token_data.get("expires_in", 3600)
+            self.token_expiry = datetime.now() + timedelta(seconds=expires_in - 300)
+            
+            logger.info("Successfully refreshed Airbyte API token")
+            return self.api_key
+            
         except httpx.HTTPStatusError as e:
-            logger.error(f"Token refresh failed: {e.response.status_code} - {e.response.text}")
-            raise AirbyteAPIError(f"Token refresh failed: {e.response.status_code}")
+            error_text = ""
+            try:
+                error_text = e.response.text
+            except:
+                error_text = str(e)
+            logger.error(f"Token refresh failed: {e.response.status_code} - {error_text}")
+            raise AirbyteAPIError(f"Token refresh failed: {e.response.status_code} - {error_text}")
         except Exception as e:
             logger.error(f"Token refresh error: {str(e)}")
             raise AirbyteAPIError(f"Token refresh error: {str(e)}")
@@ -125,9 +145,10 @@ class AirbyteAPIClient:
         Returns:
             Headers dictionary with current access token
         """
-        # Check if token refresh is needed (OAuth2 mode only)
+        # For OAuth2 mode, refresh token if we don't have one or if it's expired
         if self.use_oauth and (not self.api_key or 
-                              (self.token_expiry and datetime.now() >= self.token_expiry)):
+                              (self.token_expiry is None) or 
+                              (datetime.now() >= self.token_expiry)):
             await self._refresh_token()
         
         return {
@@ -163,70 +184,69 @@ class AirbyteAPIClient:
         for attempt in range(self.max_retries + 1):
             try:
                 headers = await self._get_headers()
-                async with httpx.AsyncClient() as client:
-                    response = await client.request(
-                        method=method,
-                        url=url,
-                        headers=headers,
-                        params=params,
-                        json=json_data,
-                        timeout=self.timeout,
-                    )
-                    
-                    # Handle rate limiting with exponential backoff
-                    if response.status_code == 429:
-                        if attempt < self.max_retries:
-                            delay = self.retry_delay * (2 ** attempt)
-                            logger.warning(f"Rate limited, retrying in {delay}s (attempt {attempt + 1})")
-                            await asyncio.sleep(delay)
-                            continue
-                        else:
-                            raise AirbyteAPIError("Rate limit exceeded. Check your Airbyte API quota.")
-                    
-                    # Handle authentication errors with token refresh retry
-                    if response.status_code == 401:
-                        if self.use_oauth and attempt < self.max_retries:
-                            logger.warning("Authentication failed, attempting token refresh")
-                            try:
-                                await self._refresh_token()
-                                continue  # Retry with new token
-                            except Exception as refresh_error:
-                                logger.error(f"Token refresh failed: {refresh_error}")
-                        raise AirbyteAPIError("Invalid Airbyte API key or token expired")
-                    
-                    # Handle forbidden access
-                    if response.status_code == 403:
-                        raise AirbyteAPIError("Forbidden: Insufficient permissions for Airbyte API")
-                    
-                    # Handle not found
-                    if response.status_code == 404:
-                        raise AirbyteAPIError(f"Resource not found: {endpoint}")
-                    
-                    # Handle server errors with retry
-                    if 500 <= response.status_code < 600:
-                        if attempt < self.max_retries:
-                            delay = self.retry_delay * (2 ** attempt)
-                            logger.warning(f"Server error {response.status_code}, retrying in {delay}s")
-                            await asyncio.sleep(delay)
-                            continue
-                        else:
-                            raise AirbyteAPIError(f"Server error: {response.status_code} - {response.text}")
-                    
-                    # Handle other client errors
-                    if 400 <= response.status_code < 500:
+                response = await self.client.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    params=params,
+                    json=json_data,
+                    timeout=self.timeout,
+                )
+                
+                # Handle rate limiting with exponential backoff
+                if response.status_code == 429:
+                    if attempt < self.max_retries:
+                        delay = self.retry_delay * (2 ** attempt)
+                        logger.warning(f"Rate limited, retrying in {delay}s (attempt {attempt + 1})")
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        raise AirbyteAPIError("Rate limit exceeded. Check your Airbyte API quota.")
+                
+                # Handle authentication errors with token refresh retry
+                if response.status_code == 401:
+                    if self.use_oauth and attempt < self.max_retries:
+                        logger.warning("Authentication failed, attempting token refresh")
                         try:
-                            error_data = response.json()
-                            error_msg = error_data.get("message", response.text)
-                        except Exception:
-                            error_msg = response.text
-                        raise AirbyteAPIError(f"Client error {response.status_code}: {error_msg}")
-                    
-                    # Handle success
-                    if response.status_code == 200:
-                        return response.json()
-                    
-                    # Handle unexpected status codes
-                    raise AirbyteAPIError(f"Unexpected status code: {response.status_code}")
+                            await self._refresh_token()
+                            continue  # Retry with new token
+                        except Exception as refresh_error:
+                            logger.error(f"Token refresh failed: {refresh_error}")
+                    raise AirbyteAPIError("Invalid Airbyte API key or token expired")
+                
+                # Handle forbidden access
+                if response.status_code == 403:
+                    raise AirbyteAPIError("Forbidden: Insufficient permissions for Airbyte API")
+                
+                # Handle not found
+                if response.status_code == 404:
+                    raise AirbyteAPIError(f"Resource not found: {endpoint}")
+                
+                # Handle server errors with retry
+                if 500 <= response.status_code < 600:
+                    if attempt < self.max_retries:
+                        delay = self.retry_delay * (2 ** attempt)
+                        logger.warning(f"Server error {response.status_code}, retrying in {delay}s")
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        raise AirbyteAPIError(f"Server error: {response.status_code} - {response.text}")
+                
+                # Handle other client errors
+                if 400 <= response.status_code < 500:
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get("message", response.text)
+                    except Exception:
+                        error_msg = response.text
+                    raise AirbyteAPIError(f"Client error {response.status_code}: {error_msg}")
+                
+                # Handle success
+                if response.status_code == 200:
+                    return response.json()
+                
+                # Handle unexpected status codes
+                raise AirbyteAPIError(f"Unexpected status code: {response.status_code}")
                     
             except httpx.RequestError as e:
                 if attempt < self.max_retries:
